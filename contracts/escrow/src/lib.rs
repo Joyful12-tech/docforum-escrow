@@ -19,6 +19,8 @@
 // docs/adr/0011. Pooled escrows add two storage records (funding config,
 // per-payer contributions); `EscrowData` and every pre-existing entry
 // point keep their exact meaning.
+// Phase E5: payee rights transfer — `transfer_payee` lets the current
+// payee reassign future payout to a new address (docs/threat-model.md).
 //
 // Hard rule (see ARCHITECTURE_ESSENTIALS.md / docs/adr/0001): the contract
 // enforces WHO may act, not WHY. `condition_ref` is opaque — the contract
@@ -1289,6 +1291,46 @@ impl EscrowContract {
         Ok(())
     }
 
+    /// Transfers future payout rights from `current_payee` to `new_payee`.
+    /// Only the current payee may call this and only while the escrow is
+    /// `Funded` (Phase E5). The contract address and the payer are rejected
+    /// as the new payee. A payee who has lost their key cannot use this —
+    /// it helps with rotation, not loss. Emits an event on success.
+    pub fn transfer_payee(
+        env: Env,
+        escrow_id: u64,
+        current_payee: Address,
+        new_payee: Address,
+    ) -> Result<(), Error> {
+        current_payee.require_auth();
+
+        let mut data: EscrowData = env
+            .storage()
+            .persistent()
+            .get(&DataKey::Escrow(escrow_id))
+            .ok_or(Error::NotFound)?;
+
+        if data.status != EscrowStatus::Funded {
+            return Err(Error::NotFunded);
+        }
+        if current_payee != data.payee {
+            return Err(Error::Unauthorized);
+        }
+
+        let contract_address = env.current_contract_address();
+        if new_payee == contract_address || new_payee == data.payer {
+            return Err(Error::Unauthorized);
+        }
+
+        data.payee = new_payee.clone();
+        env.storage().persistent().set(&DataKey::Escrow(escrow_id), &data);
+        env.events().publish(
+            (String::from_str(&env, "payee_transferred"), escrow_id),
+            (data.payer.clone(), new_payee),
+        );
+        Ok(())
+    }
+
     fn contains(list: &Vec<Address>, candidate: &Address) -> bool {
         for item in list.iter() {
             if &item == candidate {
@@ -1297,7 +1339,6 @@ impl EscrowContract {
         }
         false
     }
-
     fn next_id(env: &Env) -> u64 {
         let id: u64 = env.storage().instance().get(&DataKey::NextId).unwrap_or(0);
         env.storage().instance().set(&DataKey::NextId, &(id + 1));

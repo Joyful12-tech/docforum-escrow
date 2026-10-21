@@ -54,6 +54,8 @@ and contributor-resource exhaustion; §8 traceability gains matching rows.*
 | I4 | An escrow only exists, or grows, if the declared funds were actually transferred in — including every contribution to a pooled escrow. | `payer.require_auth()` + shared exact-balance-delta verification on create/top-up before storage is updated. `top_up` verified the transferred amount matches the top‑up amount before updating `data.amount`. `contribute` (issue #113) routes through the same `transfer_in_exact`, and updates both the per-payer record and the pooled total only after the delta is verified. |
 | I5 | The contract never interprets `condition_ref`. | No code reads it after storage (ADR 0001). |
 | I6 | An escrow created with `requires_acceptance` cannot be settled (released/refunded/canceled) without the payee's explicit `accept` call first. | `release`/`refund`/`cancel` all check `data.accepted_at` — `AcceptanceRequired` if absent, `NotFunded` if already terminal. The accept/cancel race on one ledger state is resolved by ordering: first to commit wins. |
+| I5 | The contract never interprets `condition_ref`. | No code reads it after storage (ADR 0001). |
+| I6 | An escrow created with `requires_acceptance` cannot be settled (released/refunded/canceled) without the payee's explicit `accept` call first. | `release`/`refund`/`cancel` all check `data.accepted_at` — `AcceptanceRequired` if absent, `NotFunded` if already terminal. The accept/cancel race on one ledger state is resolved by ordering: first to commit wins. |
 
 I1 is the most important property in this design. A full compromise of the
 `releaser` key lets an attacker pick the **wrong outcome** (release when it
