@@ -122,6 +122,14 @@
   full-record read (Medium), [#14](https://github.com/DocForum/docforum-escrow/issues/14) offline SDK unit tests in CI
   (Medium).
 
+## Phase E5 — Contract features (new phase)
+- [ ] `transfer_payee(escrow_id, current_payee, new_payee)` — payee
+  reassigns future payout to a new address (issue #45). Requires current
+  payee auth, only while `Funded`, rejects contract address and `payer` as
+  new payee. Emits an event. A payee who has lost their key cannot use
+  this (rotation, not loss). Per-payee transfer for split payouts.
+  Threat model I1 updated.
+
 ## Explicitly out of scope for this repo
 - Any healthcare-specific logic (see README).
 - Fiat on/off-ramp, KYC — that's `docforum-core`'s concern if/when it
@@ -305,3 +313,8 @@
   #12 were opened and closed in between). #16 merged with an empty diff
   because its branch's merge from `main` kept `main`'s ROADMAP.md
   wholesale.
+- 2026-10-21 — Phase E5: added `transfer_payee` to let the current payee
+  reassign future payout to a new address while `Funded` (issue #45),
+  requiring current payee auth, rejecting the contract address and `payer`
+  as new payee, emitting an event; threat model I1 updated to reflect
+  changeable payee destination.

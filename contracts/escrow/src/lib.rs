@@ -7,6 +7,8 @@
 // Phase E4 (issue #11): optional `refund_after` timeout refund — see
 // docs/adr/0004. After that deadline anyone may refund, but only back to
 // the payer, so a lost `releaser` key can no longer lock funds forever.
+// Phase E5: payee rights transfer — `transfer_payee` lets the current
+// payee reassign future payout to a new address (docs/threat-model.md).
 //
 // Hard rule (see ARCHITECTURE_ESSENTIALS.md / docs/adr/0001): the contract
 // enforces WHO may act, not WHY. `condition_ref` is opaque — the contract
@@ -214,6 +216,46 @@ impl EscrowContract {
 
         data.status = EscrowStatus::Refunded;
         env.storage().persistent().set(&DataKey::Escrow(escrow_id), &data);
+        Ok(())
+    }
+
+    /// Transfers future payout rights from `current_payee` to `new_payee`.
+    /// Only the current payee may call this and only while the escrow is
+    /// `Funded` (Phase E5). The contract address and the payer are rejected
+    /// as the new payee. A payee who has lost their key cannot use this —
+    /// it helps with rotation, not loss. Emits an event on success.
+    pub fn transfer_payee(
+        env: Env,
+        escrow_id: u64,
+        current_payee: Address,
+        new_payee: Address,
+    ) -> Result<(), Error> {
+        current_payee.require_auth();
+
+        let mut data: EscrowData = env
+            .storage()
+            .persistent()
+            .get(&DataKey::Escrow(escrow_id))
+            .ok_or(Error::NotFound)?;
+
+        if data.status != EscrowStatus::Funded {
+            return Err(Error::NotFunded);
+        }
+        if current_payee != data.payee {
+            return Err(Error::Unauthorized);
+        }
+
+        let contract_address = env.current_contract_address();
+        if new_payee == contract_address || new_payee == data.payer {
+            return Err(Error::Unauthorized);
+        }
+
+        data.payee = new_payee.clone();
+        env.storage().persistent().set(&DataKey::Escrow(escrow_id), &data);
+        env.events().publish(
+            (String::from_str(&env, "payee_transferred"), escrow_id),
+            (data.payer.clone(), new_payee),
+        );
         Ok(())
     }
 

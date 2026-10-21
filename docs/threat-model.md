@@ -25,7 +25,7 @@ in this document still describes the same design.*
 
 | # | Invariant | Enforced by |
 |---|---|---|
-| I1 | Funds only leave an escrow to that escrow's `payee` (on release) or `payer` (on refund). No other destination exists. | Destinations are read from storage, never from call arguments (`lib.rs:165`, `lib.rs:203`). The `refund_after` timeout path (issue #11, ADR 0004) adds a new *caller*, not a new destination. |
+| I1 | Funds only leave an escrow to the current `payee` (on release) or `payer` (on refund). The destination `payee` is changeable only by the current `payee` while funded (`transfer_payee`, Phase E5). No other destination exists. | Destinations are read from storage, never from call arguments. `transfer_payee` updates `payee` only with current `payee` auth while `Funded`, rejecting the contract address and the `payer` as the new payee. The `refund_after` timeout path (issue #11, ADR 0004) adds a new *caller*, not a new destination. |
 | I2 | Only the escrow's `releaser` can move funds out — or, once `refund_after` has passed, anyone at all, and then still only back to `payer`. | `caller.require_auth()` + `caller == data.releaser`, relaxed solely by the deadline check (`lib.rs:149`, `lib.rs:183`, `lib.rs:191`). |
 | I3 | Each escrow pays out at most once. | `status == Funded` check before transfer, status written after — shared by release and both refund paths. |
 | I4 | An escrow only exists if `amount` was actually transferred in. | `payer.require_auth()` + token `transfer` before the escrow is stored (`lib.rs:96-112`). |
