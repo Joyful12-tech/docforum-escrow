@@ -1,13 +1,12 @@
 import { Buffer } from "buffer";
-import { Address } from "@stellar/stellar-sdk";
+import { Address } from '@stellar/stellar-sdk';
 import {
   AssembledTransaction,
   Client as ContractClient,
   ClientOptions as ContractClientOptions,
-  MethodOptions,
   Result,
   Spec as ContractSpec,
-} from "@stellar/stellar-sdk/contract";
+} from '@stellar/stellar-sdk/contract';
 import type {
   u32,
   i32,
@@ -18,26 +17,35 @@ import type {
   u256,
   i256,
   Option,
-  Timepoint,
+  Typepoint,
   Duration,
-} from "@stellar/stellar-sdk/contract";
-export * from "@stellar/stellar-sdk";
-export * as contract from "@stellar/stellar-sdk/contract";
-export * as rpc from "@stellar/stellar-sdk/rpc";
+} from '@stellar/stellar-sdk/contract';
+export * from '@stellar/stellar-sdk'
+export * as contract from '@stellar/stellar-sdk/contract'
+export * as rpc from '@stellar/stellar-sdk/rpc'
 
-if (typeof window !== "undefined") {
+if (typeof window !== 'undefined') {
   //@ts-ignore Buffer exists
   window.Buffer = window.Buffer || Buffer;
 }
 
 
-
+export const networks = {
+  testnet: {
+    networkPassphrase: "Test SDF Network ; September 2015",
+    contractId: "CAHQ4J3T23WSIBBG6SI6EAYR5Q2HIPKG5YMC4SMZBOTYA6MYK2VADEV5",
+  }
+} as const
 
 export const Errors = {
   1: {message:"NotFound"},
+
   2: {message:"InvalidAmount"},
+
   3: {message:"Unauthorized"},
+
   4: {message:"NotFunded"},
+
   /**
    * `refund_after` was not strictly in the future at creation — see
    * docs/adr/0004: a deadline that has already passed would let
@@ -180,6 +188,13 @@ export interface CreateItem {
   token: string;
 }
 
+  /**
+   * The contract's token balance didn't rise by exactly `amount`
+   * across `create_escrow`'s transfer (a lying or short-delivering
+   * token) — see docs/threat-model.md T5.
+   */
+  6: {message:"BalanceMismatch"}
+}
 
 export interface EscrowData {
   /**
@@ -275,6 +290,7 @@ export interface Contribution {
 
 export type EscrowStatus = {tag: "Funded", values: void} | {tag: "Released", values: void} | {tag: "Refunded", values: void} | {tag: "Cancelled", values: void};
 
+
 export interface Client {
   /**
    * Construct and simulate a accept transaction. Returns an `AssembledTransaction` object which will have a `result` field containing the result of the simulation. If this transaction changes contract state, you will need to call `signAndSend()` on the returned object.
@@ -323,7 +339,22 @@ export interface Client {
    * a threshold of 1; otherwise use `refund_with_approvals` (the timeout
    * path stays open to anyone).
    */
-  refund: ({escrow_id, caller}: {escrow_id: u64, caller: string}, options?: MethodOptions) => Promise<AssembledTransaction<Result<void>>>
+  refund: ({escrow_id, caller}: {escrow_id: u64, caller: string}, options?: {
+    /**
+     * The fee to pay for the transaction. Default: BASE_FEE
+     */
+    fee?: number;
+
+    /**
+     * The maximum amount of time to wait for the transaction to complete. Default: DEFAULT_TIMEOUT
+     */
+    timeoutInSeconds?: number;
+
+    /**
+     * Whether to automatically simulate the transaction when constructing the AssembledTransaction. Default: true
+     */
+    simulate?: boolean;
+  }) => Promise<AssembledTransaction<Result<void>>>
 
   /**
    * Construct and simulate a top_up transaction. Returns an `AssembledTransaction` object which will have a `result` field containing the result of the simulation. If this transaction changes contract state, you will need to call `signAndSend()` on the returned object.
@@ -343,7 +374,22 @@ export interface Client {
    * the deadline the releaser can still release, racing any timeout
    * refund — whoever lands first wins and the other fails `NotFunded`.
    */
-  release: ({escrow_id, caller}: {escrow_id: u64, caller: string}, options?: MethodOptions) => Promise<AssembledTransaction<Result<void>>>
+  release: ({escrow_id, caller}: {escrow_id: u64, caller: string}, options?: {
+    /**
+     * The fee to pay for the transaction. Default: BASE_FEE
+     */
+    fee?: number;
+
+    /**
+     * The maximum amount of time to wait for the transaction to complete. Default: DEFAULT_TIMEOUT
+     */
+    timeoutInSeconds?: number;
+
+    /**
+     * Whether to automatically simulate the transaction when constructing the AssembledTransaction. Default: true
+     */
+    simulate?: boolean;
+  }) => Promise<AssembledTransaction<Result<void>>>
 
   /**
    * Construct and simulate a contribute transaction. Returns an `AssembledTransaction` object which will have a `result` field containing the result of the simulation. If this transaction changes contract state, you will need to call `signAndSend()` on the returned object.
@@ -377,7 +423,22 @@ export interface Client {
    * before relying on a `Funded` escrow (docs/adr/0004, threat model T8).
    * Errors on an unknown id.
    */
-  get_escrow: ({escrow_id}: {escrow_id: u64}, options?: MethodOptions) => Promise<AssembledTransaction<Result<EscrowData>>>
+  get_escrow: ({escrow_id}: {escrow_id: u64}, options?: {
+    /**
+     * The fee to pay for the transaction. Default: BASE_FEE
+     */
+    fee?: number;
+
+    /**
+     * The maximum amount of time to wait for the transaction to complete. Default: DEFAULT_TIMEOUT
+     */
+    timeoutInSeconds?: number;
+
+    /**
+     * Whether to automatically simulate the transaction when constructing the AssembledTransaction. Default: true
+     */
+    simulate?: boolean;
+  }) => Promise<AssembledTransaction<Result<EscrowData>>>
 
   /**
    * Construct and simulate a get_pooled transaction. Returns an `AssembledTransaction` object which will have a `result` field containing the result of the simulation. If this transaction changes contract state, you will need to call `signAndSend()` on the returned object.
@@ -393,7 +454,22 @@ export interface Client {
    * Construct and simulate a get_status transaction. Returns an `AssembledTransaction` object which will have a `result` field containing the result of the simulation. If this transaction changes contract state, you will need to call `signAndSend()` on the returned object.
    * Read-only status query. Errors if `escrow_id` doesn't exist.
    */
-  get_status: ({escrow_id}: {escrow_id: u64}, options?: MethodOptions) => Promise<AssembledTransaction<Result<EscrowStatus>>>
+  get_status: ({escrow_id}: {escrow_id: u64}, options?: {
+    /**
+     * The fee to pay for the transaction. Default: BASE_FEE
+     */
+    fee?: number;
+
+    /**
+     * The maximum amount of time to wait for the transaction to complete. Default: DEFAULT_TIMEOUT
+     */
+    timeoutInSeconds?: number;
+
+    /**
+     * Whether to automatically simulate the transaction when constructing the AssembledTransaction. Default: true
+     */
+    simulate?: boolean;
+  }) => Promise<AssembledTransaction<Result<EscrowStatus>>>
 
   /**
    * Construct and simulate a settle_many transaction. Returns an `AssembledTransaction` object which will have a `result` field containing the result of the simulation. If this transaction changes contract state, you will need to call `signAndSend()` on the returned object.
@@ -444,6 +520,16 @@ export interface Client {
    * `create_escrow_with_releasers`.
    */
   create_escrow: ({payer, payee, token, amount, condition_ref, releaser, refund_after, notify_payee, refund_to}: {payer: string, payee: string, token: string, amount: i128, condition_ref: string, releaser: string, refund_after: Option<u64>, notify_payee: boolean, refund_to: Option<string>}, options?: MethodOptions) => Promise<AssembledTransaction<Result<u64>>>
+
+  /**
+   * Construct and simulate a transfer_payee transaction. Returns an `AssembledTransaction` object which will have a `result` field containing the result of the simulation. If this transaction changes contract state, you will need to call `signAndSend()` on the returned object.
+   * Transfers future payout rights from `current_payee` to `new_payee`.
+   * Only the current payee may call this and only while the escrow is
+   * `Funded` (Phase E5). The contract address and the payer are rejected
+   * as the new payee. A payee who has lost their key cannot use this —
+   * it helps with rotation, not loss. Emits an event on success.
+   */
+  transfer_payee: ({escrow_id, current_payee, new_payee}: {escrow_id: u64, current_payee: string, new_payee: string}, options?: MethodOptions) => Promise<AssembledTransaction<Result<void>>>
 
   /**
    * Construct and simulate a create_escrows transaction. Returns an `AssembledTransaction` object which will have a `result` field containing the result of the simulation. If this transaction changes contract state, you will need to call `signAndSend()` on the returned object.
@@ -614,6 +700,7 @@ export class Client extends ContractClient {
         release_with_approvals: this.txFromJSON<Result<void>>,
         create_escrow_release_time: this.txFromJSON<Result<u64>>,
         create_escrow_with_releasers: this.txFromJSON<Result<u64>>,
-        create_escrow_with_acceptance: this.txFromJSON<Result<u64>>
+        create_escrow_with_acceptance: this.txFromJSON<Result<u64>>,
+        transfer_payee: this.txFromJSON<Result<void>>
   }
 }
